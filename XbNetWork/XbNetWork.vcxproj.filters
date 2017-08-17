@@ -30,6 +30,9 @@
     <ClCompile Include="UserManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="XbUtil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MessageHandler.hpp">
@@ -48,6 +51,9 @@
       <Filter>源文件</Filter>
     </ClInclude>
     <ClInclude Include="UserManager.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="XbUtil.h">
       <Filter>源文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -10,6 +10,7 @@
 #include "UserManager.h"
 #include "XbCmd.h"
 #include "base64.h"
+#include "XbUtil.h"
 
 using namespace boost::property_tree;
 
@@ -33,7 +34,7 @@ void MessageHandler::handleMsg(socket_ptr sock){
         sock->write_some(buffer(distribute(_body,sock)));
     }
 	//远程客户端发起关闭连接
-    if (error == error::eof) {		
+    if (error == error::eof) {	
         sock->close();
 		std::cout << "收到消息：客户端关闭连接" << std::endl;
         return;
@@ -119,13 +120,13 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 			{
 				_blength = "00";
 			}
-			returnMsg = returnMsg + _blength+ std::to_string(mc.length())+mc;
+			returnMsg = returnMsg + _blength+ xb_tostring(mc.length())+mc;
             break;
         }
 		case PLAYER_MOVE_CODE: {
 			string msg = message.substr(9, len);
 			returnMsg= "200" + _headCode + _userId + _blength + msg;
-			for (iter = clients.begin(); iter != clients.end(); iter++)
+			for (iter = clients.begin(); iter != clients.end(); )
 			{
 				string uid = iter ->first;
 				XbClient* p = iter ->second;
@@ -139,10 +140,12 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 						catch (std::exception& e) {
 							printf("caught exception: %s", e.what());
 							// 通知用户离线
-							clients.erase(uid);
+							clients.erase(iter++);
+							continue;
 						}											
 					}
-				}				
+				}	
+				iter++;
 			}
 			break;
 		}
