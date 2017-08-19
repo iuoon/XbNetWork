@@ -28,8 +28,8 @@ void MessageHandler::handleMsg(socket_ptr sock){
     size_t len = sock->read_some(buffer(data), error);
     if (len > 0) {		
         string recvdata(data);
-		std::string _blen = recvdata.substr(6, 3);
-		std::string _body = recvdata.substr(0,9+ atoi(_blen.c_str()));
+		std::string _blen = recvdata.substr(4, 3);
+		std::string _body = recvdata.substr(0,7+ atoi(_blen.c_str()));
         std::cout<<"收到消息："<< _body << std::endl;
         sock->write_some(buffer(distribute(_body,sock)));
     }
@@ -43,18 +43,26 @@ void MessageHandler::handleMsg(socket_ptr sock){
 
 string MessageHandler::distribute(string message,socket_ptr sock){
     string _headCode=message.substr(0,4);
-    string _userId=message.substr(4,2);
-	string _blength = message.substr(6, 3);
+	string _blength = message.substr(4, 3);
 	int len = message.length();
     int co;co=atoi(_headCode.c_str());
     string returnMsg;
+	string msg = message.substr(7, len);
+	//解密
+	string decMsg = base64_decode(msg);
+	stringstream stream;
+	stream << decMsg;
+	boost::property_tree::ptree root;
+	read_json<ptree>(stream, root);
+	string _userId = root.get<string>("userId");
+
     switch (co) {
         case PING_CODE:{
             returnMsg= "200"+_headCode+ _userId + _blength;
             break;
         }
         case LOGIN_CODE:{
-			string msg = message.substr(9, len);
+			
             XbClient * currentUser=NULL;
             iter = clients.find(_userId);
             if(iter!=clients.end()){
@@ -64,12 +72,7 @@ string MessageHandler::distribute(string message,socket_ptr sock){
                 XbClient * user=new XbClient();
 				user->sock = sock;
 				user->userId = _userId;
-				//解密
-				string decMsg = base64_decode(msg);
-				stringstream stream;
-				stream << decMsg;
-				boost::property_tree::ptree root;				
-				read_json<ptree>(stream, root);
+				
 				user->d_x = root.get<string>("dx");
 				user->d_y = root.get<string>("dy");
 				user->d_z = root.get<string>("dz");
@@ -78,20 +81,28 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 				user->p_z = root.get<string>("pz");
                 clients.insert(pair<string,XbClient*>(_userId,user)); 				
             }
-			returnMsg = "200" + _headCode + _userId ;
+			returnMsg = "200" + _headCode;
 			ptree jsonc,users;
 			string mc = "";
 			//向在线玩家发送玩家上线
 			if (clients.size()>1)
 			{
-				for (iter = clients.begin(); iter != clients.end(); iter++)
+				for (iter = clients.begin(); iter != clients.end();)
 				{
 					string uid = iter->first;
 					XbClient* p = iter->second;
 					if (uid != _userId)
 					{
-						string backMsg = "200" + _headCode + _userId + _blength + msg;
-						p->sock->write_some(buffer(backMsg));
+						string backMsg = "200" + _headCode + _blength + msg;
+						try {
+							p->sock->write_some(buffer(backMsg));
+						}
+						catch (std::exception& e) {
+							printf("caught exception: %s", e.what());
+							// 通知用户离线
+							clients.erase(iter++);
+							continue;
+						}
 						ptree player;
 						player.put("userId", uid);
 						player.put("dx", p->d_x);
@@ -102,11 +113,13 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 						player.put("pz", p->p_z);
 						users.push_back(make_pair("", player));						
 					}
+					iter++;
 				}
 				jsonc.push_back(std::make_pair("users", users));
+				jsonc.put("userId", _userId);
 				ostringstream os;
 				write_json(os, jsonc,false);  //false 禁止换行				
-				mc = os.str();
+				mc = os.str();				
 			}			
 
 			//返回附近玩家列表信息			
@@ -121,11 +134,12 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 				_blength = "00";
 			}
 			returnMsg = returnMsg + _blength+ xb_tostring(mc.length())+mc;
+			
             break;
         }
 		case PLAYER_MOVE_CODE: {
-			string msg = message.substr(9, len);
-			returnMsg= "200" + _headCode + _userId + _blength + msg;
+			string msg = message.substr(7, len);
+			returnMsg= "200" + _headCode  + _blength + msg;
 			for (iter = clients.begin(); iter != clients.end(); )
 			{
 				string uid = iter ->first;
@@ -150,8 +164,8 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 			break;
 		}
 		case GET_PLAYER_LIST_CODE: {
-			string msg = message.substr(9, len);
-			returnMsg = "200" + _headCode + _userId + _blength + msg;
+			string msg = message.substr(7, len);
+			returnMsg = "200" + _headCode  + _blength + msg;
 			break;
 		}
         default:
