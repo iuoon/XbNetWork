@@ -26,38 +26,6 @@ int main(int argc, char* argv[]) {
 	int a = 10+ rand() % 99;
 	std::cout << a << std::endl;
 
-	boost::property_tree::ptree root;
-	boost::property_tree::ptree items;
-
-
-
-	boost::property_tree::ptree item1;
-	item1.put("ID", "1");
-	item1.put("Name", "wang");
-	items.push_back(std::make_pair("", item1));
-
-
-
-
-	boost::property_tree::ptree item2;
-	item2.put("ID", "2");
-	item2.put("Name", "zhang");
-	items.push_back(std::make_pair("", item2));
-
-
-	boost::property_tree::ptree item3;
-	item3.put("ID", "3");
-	item3.put("Name", "li");
-	items.push_back(std::make_pair("", item3));
-
-
-	root.push_back(std::make_pair("user", items));
-
-	ostringstream os;
-	write_json(os, root);
-//	std::cout << os.str() << std::endl;
-
-
 	io_service service;
 	ip::tcp::endpoint ep(ip::tcp::v4(), 9001);//
 	ip::tcp::acceptor acc(service, ep);
@@ -71,9 +39,10 @@ int main(int argc, char* argv[]) {
 }
 
 void client_session(socket_ptr sock) {
-	while (true) {
-		messageHandler->handleMsg(sock);
-	}
+	while (sock->is_open())
+	{
+		messageHandler->handleMsg(sock);		
+	}			
 }
 
 void checkheart() {

@@ -24,21 +24,26 @@ MessageHandler::~MessageHandler(){
 
 void MessageHandler::handleMsg(socket_ptr sock){
     char data[1024];
-    boost::system::error_code error;
-    size_t len = sock->read_some(buffer(data), error);
-    if (len > 0) {		
+    boost::system::error_code err;
+    size_t len = sock->read_some(buffer(data), err);
+	
+    if (len > 7) {		
         string recvdata(data);
 		std::string _blen = recvdata.substr(4, 3);
 		std::string _body = recvdata.substr(0,7+ atoi(_blen.c_str()));
-        std::cout<<"收到消息："<< _body << std::endl;
+   //     std::cout<<"收到消息："<< _body << std::endl;
         sock->write_some(buffer(distribute(_body,sock)));
-    }
-	//远程客户端发起关闭连接
-    if (error == error::eof) {	
-        sock->close();
-		std::cout << "收到消息：客户端关闭连接" << std::endl;
-        return;
-    }
+	}
+	else {
+		//string recvdata1(data);
+		//std::cout << "收到错误的消息:" <<std::endl;
+	}
+	if (len == 0 || err == error::eof)
+	{
+		sock->close();
+		std::cout << "recive msg：the client closed!" << std::endl;
+	}
+	
 }
 
 string MessageHandler::distribute(string message,socket_ptr sock){
@@ -94,15 +99,15 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 					if (uid != _userId)
 					{
 						string backMsg = "200" + _headCode + _blength + msg;
-						try {
-							p->sock->write_some(buffer(backMsg));
-						}
-						catch (std::exception& e) {
-							printf("caught exception: %s", e.what());
+						boost::system::error_code error1;
+						
+						p->sock->write_some(buffer(backMsg),error1);
+						
+						if (error1 == error::eof) {
 							// 通知用户离线
-							clients.erase(iter++);
-							continue;
+							clients.erase(iter++);					
 						}
+																		
 						ptree player;
 						player.put("userId", uid);
 						player.put("dx", p->d_x);
@@ -113,7 +118,7 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 						player.put("pz", p->p_z);
 						users.push_back(make_pair("", player));						
 					}
-					iter++;
+					++iter;
 				}
 				jsonc.push_back(std::make_pair("users", users));
 				jsonc.put("userId", _userId);
@@ -148,18 +153,15 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 				{	
 					if (p->sock->is_open())
 					{   
-						try {
-							p->sock->write_some(buffer(returnMsg));
-						}
-						catch (std::exception& e) {
-							printf("caught exception: %s", e.what());
+						boost::system::error_code error2;
+						p->sock->write_some(buffer(returnMsg), error2);
+						if (error2 == error::eof) {
 							// 通知用户离线
 							clients.erase(iter++);
-							continue;
-						}											
+						}						
 					}
-				}	
-				iter++;
+				}
+				++iter;
 			}
 			break;
 		}
