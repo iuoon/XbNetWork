@@ -6,7 +6,6 @@
 //  Copyright ? 2017Äê ÎâÓÀÕı. All rights reserved.
 //
 
-
 #include "XbCustom.h"
 #include "MessageHandler.hpp"
 

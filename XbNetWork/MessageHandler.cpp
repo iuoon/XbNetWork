@@ -60,6 +60,7 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 	boost::property_tree::ptree root;
 	read_json<ptree>(stream, root);
 	string _userId = root.get<string>("userId");
+	string _userName = "";
 
     switch (co) {
         case PING_CODE:{
@@ -77,7 +78,16 @@ string MessageHandler::distribute(string message,socket_ptr sock){
                 XbClient * user=new XbClient();
 				user->sock = sock;
 				user->userId = _userId;
-				
+
+				srand((unsigned)time(NULL));
+				string name;
+				for (int i = 0; i < 2;i++)
+				{
+					char aChar='A' + rand() % (('Z' + 1) - 'A');//
+					name = name+ aChar;
+				}				
+				user->userName = name;
+				_userName = name;
 				user->d_x = root.get<string>("dx");
 				user->d_y = root.get<string>("dy");
 				user->d_z = root.get<string>("dz");
@@ -100,16 +110,20 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 					{
 						string backMsg = "200" + _headCode + _blength + msg;
 						boost::system::error_code error1;
-						
-						p->sock->write_some(buffer(backMsg),error1);
-						
-						if (error1 == error::eof) {
-							// 通知用户离线
-							clients.erase(iter++);					
+						try
+						{
+							p->sock->write_some(buffer(backMsg));
 						}
+						catch (const std::exception& e)
+						{
+							// 通知用户离线
+							clients.erase(iter++);
+							continue;
+						}																																		
 																		
 						ptree player;
 						player.put("userId", uid);
+						player.put("userName", p->userName);
 						player.put("dx", p->d_x);
 						player.put("dy", p->d_y);
 						player.put("dz", p->d_z);
@@ -122,6 +136,7 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 				}
 				jsonc.push_back(std::make_pair("users", users));
 				jsonc.put("userId", _userId);
+				jsonc.put("userName",_userName);
 				ostringstream os;
 				write_json(os, jsonc,false);  //false 禁止换行				
 				mc = os.str();				
@@ -154,11 +169,16 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 					if (p->sock->is_open())
 					{   
 						boost::system::error_code error2;
-						p->sock->write_some(buffer(returnMsg), error2);
-						if (error2 == error::eof) {
+						try
+						{
+							p->sock->write_some(buffer(returnMsg), error2);
+						}
+						catch (const std::exception& e)
+						{
 							// 通知用户离线
 							clients.erase(iter++);
-						}						
+							continue;
+						}																		
 					}
 				}
 				++iter;
@@ -168,6 +188,38 @@ string MessageHandler::distribute(string message,socket_ptr sock){
 		case GET_PLAYER_LIST_CODE: {
 			string msg = message.substr(7, len);
 			returnMsg = "200" + _headCode  + _blength + msg;
+			break;
+		}
+		case CHAT_CODE: {
+			string msg = message.substr(7, len);
+			returnMsg = "200" + _headCode + _blength + msg;
+
+			//向在线玩家发送玩家上线
+			if (clients.size() > 1)
+			{
+				for (iter = clients.begin(); iter != clients.end();)
+				{
+					string uid = iter->first;
+					XbClient* p = iter->second;
+					if (uid != _userId)
+					{
+						string backMsg = "200" + _headCode + _blength + msg;
+						try
+						{
+							p->sock->write_some(buffer(backMsg));
+						}
+						catch (const std::exception& e)
+						{
+							// 通知用户离线
+							clients.erase(iter++);
+							continue;
+						}
+
+
+					}
+					++iter;
+				}
+			}
 			break;
 		}
         default:

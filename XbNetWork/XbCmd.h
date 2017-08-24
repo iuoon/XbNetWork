@@ -20,5 +20,7 @@
 #define PLAYER_MOVE_CODE 2003
 //获取其他玩家
 #define GET_PLAYER_LIST_CODE 2004
+//获取其他玩家
+#define CHAT_CODE 2005
 
 #endif /* XbCmd_h */
